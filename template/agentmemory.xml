@@ -1,0 +1,87 @@
+<?xml version="1.0"?>
+<Container version="2">
+    <Name>agentmemory</Name>
+    <Repository>ghcr.io/estebanforge/agentmemory:1.0.0</Repository>
+    <Registry>https://github.com/users/EstebanForge/packages/container/agentmemory</Registry>
+    <Network>bridge</Network>
+    <Privileged>false</Privileged>
+    <Support>https://github.com/rohitg00/agentmemory/issues</Support>
+    <Project>https://www.agent-memory.dev/</Project>
+    <Overview>Cross-session memory layer for coding agents. Self-contained multi-arch container (iii engine v0.11.2 + agentmemory worker). Bring your own LLM and embedding provider: Gemini, OpenAI, any OpenAI-compatible API (DeepSeek, Z.ai GLM, SiliconFlow, vLLM, Ollama), Anthropic, MiniMax, or OpenRouter. Bearer-authenticated REST + viewer. Persistent state in /data.</Overview>
+    <Category>Productivity:Tools</Category>
+    <WebUI>http://[IP]:[PORT:3113]</WebUI>
+    <TemplateURL/>
+    <Icon>https://raw.githubusercontent.com/EstebanForge/unraid-agentmemory/main/assets/logo.png</Icon>
+    <Requires>Set at least ONE LLM provider key below (Gemini, OpenAI, Anthropic, MiniMax, or OpenRouter). Without one the container runs BM25-only with LLM features disabled. Cloud embeddings are mandatory in this image (local is omitted). To open the viewer from a browser, set AGENTMEMORY_SECRET and VIEWER_ALLOWED_HOSTS. Put migrated state_store.db + stream_store into the appdata dir BEFORE first start.</Requires>
+
+    <!-- Ports -->
+    <Config Name="REST / MCP HTTP" Target="3111" Default="3111" Mode="tcp" Description="REST API + MCP HTTP surface. Clients set AGENTMEMORY_URL=http://&lt;NAS-IP&gt;:3111" Type="Port" Display="always" Required="true" Mask="false"/>
+    <Config Name="Viewer WebUI" Target="3113" Default="3113" Mode="tcp" Description="Memory browser UI. LAN-reachable only when VIEWER_ALLOWED_HOSTS is set; otherwise stays loopback (local-only). Auth-gated by AGENTMEMORY_SECRET via a built-in login modal." Type="Port" Display="always" Required="false" Mask="false"/>
+
+    <!-- Data -->
+    <Config Name="Appdata" Target="/data" Default="/mnt/user/appdata/agentmemory/data" Mode="rw" Description="Persistent KV store: state_store.db, stream_store, .hmac, snapshots. Put on the cache pool. Covered by Appdata Backup." Type="Path" Display="always" Required="true" Mask="false"/>
+
+    <!-- Auth -->
+    <Config Name="Bearer Secret" Target="AGENTMEMORY_SECRET" Default="" Mode="" Description="Auth secret for REST + viewer. The viewer shows a login modal that asks for this. Set once, reuse on every client. If left blank a random one is generated on first boot (read it from the container log)." Type="Variable" Display="always" Required="false" Mask="true"/>
+    <Config Name="Viewer Allowed Hosts" Target="VIEWER_ALLOWED_HOSTS" Default="" Mode="" Description="Set to enable LAN access to the viewer web UI. Comma-separated Host:port values a browser will use, e.g. whitebox:3113 or 192.168.1.10:3113 (exact match, no wildcards). Leave blank to keep the viewer loopback-only (published 3113 unreachable from LAN, container stays healthy)." Type="Variable" Display="always" Required="false" Mask="false"/>
+
+    <!-- LLM providers (set ONE; if several are set, detection order is OpenAI > MiniMax > Anthropic > Gemini > OpenRouter) -->
+    <Config Name="LLM: Gemini API Key" Target="GEMINI_API_KEY" Default="" Mode="" Description="Google Gemini key. Powers LLM (compress/consolidation/graph) + embeddings. Default provider. Get one at aistudio.google.com/apikey." Type="Variable" Display="always" Required="false" Mask="true"/>
+    <Config Name="LLM: OpenAI API Key" Target="OPENAI_API_KEY" Default="" Mode="" Description="OpenAI key, OR any OpenAI-compatible provider when paired with OPENAI_BASE_URL (DeepSeek, Z.ai GLM, SiliconFlow, vLLM, LM Studio, Ollama). Powers LLM + embeddings." Type="Variable" Display="always" Required="false" Mask="true"/>
+    <Config Name="LLM: OpenAI Base URL" Target="OPENAI_BASE_URL" Default="" Mode="" Description="Override endpoint for OpenAI-compatible providers. Examples: https://api.deepseek.com/v1 (DeepSeek), https://open.bigmodel.cn/api/paas/v4 (Z.ai GLM), https://api.siliconflow.cn/v1 (SiliconFlow), http://host.docker.internal:1234/v1 (LM Studio), http://ollama:11434/v1 (Ollama). Leave blank for OpenAI itself." Type="Variable" Display="always" Required="false" Mask="false"/>
+    <Config Name="LLM: Anthropic API Key" Target="ANTHROPIC_API_KEY" Default="" Mode="" Description="Anthropic key. LLM only (Anthropic has no embeddings API; you must also set an embedding provider key such as Gemini or OpenAI)." Type="Variable" Display="always" Required="false" Mask="true"/>
+    <Config Name="LLM: MiniMax API Key" Target="MINIMAX_API_KEY" Default="" Mode="" Description="MiniMax key. LLM only (no embeddings). Pair with an embedding provider." Type="Variable" Display="always" Required="false" Mask="true"/>
+    <Config Name="LLM: OpenRouter API Key" Target="OPENROUTER_API_KEY" Default="" Mode="" Description="OpenRouter key. One key reaches many models (DeepSeek, GLM, Claude, GPT, etc.) for LLM + embeddings. Easiest multi-model route." Type="Variable" Display="always" Required="false" Mask="true"/>
+
+    <!-- Embeddings -->
+    <Config Name="Embedding Provider" Target="EMBEDDING_PROVIDER" Default="" Mode="" Description="Leave blank to auto-detect from your keys (Gemini > OpenAI > Voyage > Cohere > OpenRouter). Or force one: gemini, openai, voyage, cohere, openrouter. NOTE: local is unavailable in this image (the transformers dependency is omitted), so a cloud provider is mandatory." Type="Variable" Display="always" Required="false" Mask="false"/>
+    <Config Name="Embeddings: Voyage API Key" Target="VOYAGE_API_KEY" Default="" Mode="" Description="Voyage AI key. Optimised for code embeddings. Used when EMBEDDING_PROVIDER=voyage (or auto-detected)." Type="Variable" Display="advanced" Required="false" Mask="true"/>
+    <Config Name="Embeddings: Cohere API Key" Target="COHERE_API_KEY" Default="" Mode="" Description="Cohere key for general-purpose embeddings. Used when EMBEDDING_PROVIDER=cohere (or auto-detected)." Type="Variable" Display="advanced" Required="false" Mask="true"/>
+
+    <!-- Tool surface -->
+    <Config Name="MCP Tool Surface" Target="AGENTMEMORY_TOOLS" Default="core|all" Mode="" Description="Tools exposed to MCP clients. core = 7 essential tools (default); all = 51 tools. Bump to all for power-user clients." Type="Variable" Display="advanced" Required="false" Mask="false">core</Config>
+
+    <!-- Models -->
+    <Config Name="Gemini Model" Target="GEMINI_MODEL" Default="gemini-2.5-flash-lite" Mode="" Description="Gemini LLM model. gemini-2.5-flash-lite is non-thinking and avoids burst stream drops; the default gemini-2.5-flash can drop long streams under load." Type="Variable" Display="advanced" Required="false" Mask="false">gemini-2.5-flash-lite</Config>
+    <Config Name="Anthropic Model" Target="ANTHROPIC_MODEL" Default="claude-sonnet-4-5" Mode="" Description="Anthropic model id. Examples: claude-sonnet-4-5, claude-haiku-4-5, claude-opus-4-1. Use a current id." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+    <Config Name="Anthropic Base URL" Target="ANTHROPIC_BASE_URL" Default="" Mode="" Description="Override for Anthropic-compatible proxies or Azure AI Foundry. Leave blank for api.anthropic.com." Type="Variable" Display="advanced-hide" Required="false" Mask="false"/>
+    <Config Name="MiniMax Model" Target="MINIMAX_MODEL" Default="" Mode="" Description="MiniMax model id. Example: MiniMax-M2." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+    <Config Name="OpenRouter Model" Target="OPENROUTER_MODEL" Default="" Mode="" Description="OpenRouter model slug. Examples: anthropic/claude-sonnet-4-5, deepseek/deepseek-chat, zhipuai/glm-4.6, openai/gpt-4.1." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+    <Config Name="OpenAI Embedding Model" Target="OPENAI_EMBEDDING_MODEL" Default="text-embedding-3-small" Mode="" Description="Embedding model when EMBEDDING_PROVIDER=openai. Default text-embedding-3-small. Also honored by OpenAI-compatible providers that expose /v1/embeddings." Type="Variable" Display="advanced" Required="false" Mask="false">text-embedding-3-small</Config>
+    <Config Name="OpenAI Embedding Dimensions" Target="OPENAI_EMBEDDING_DIMENSIONS" Default="" Mode="" Description="Required only when the embedding model is not in agentmemory's known-models table. Leave blank otherwise." Type="Variable" Display="advanced-hide" Required="false" Mask="false"/>
+
+    <!-- LLM tuning -->
+    <Config Name="Max Tokens" Target="MAX_TOKENS" Default="4096" Mode="" Description="Cap on LLM completion tokens for compression / summarise calls." Type="Variable" Display="advanced" Required="false" Mask="false">4096</Config>
+    <Config Name="LLM Timeout (ms)" Target="AGENTMEMORY_LLM_TIMEOUT_MS" Default="60000" Mode="" Description="Outbound LLM / embedding request timeout, shared across all raw-fetch providers (Gemini, OpenRouter, MiniMax, OpenAI, Cohere, Voyage)." Type="Variable" Display="advanced" Required="false" Mask="false">60000</Config>
+    <Config Name="Fallback Providers" Target="FALLBACK_PROVIDERS" Default="" Mode="" Description="Comma-separated provider chain tried after the primary returns an error (e.g. a rate limit). Example: anthropic,gemini. Order matters." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+
+    <!-- Behavior flags -->
+    <Config Name="Auto Compress" Target="AGENTMEMORY_AUTO_COMPRESS" Default="true|false" Mode="" Description="Run LLM compression on every observation batch (needs a provider key). Default on; synthetic compression runs when off." Type="Variable" Display="advanced" Required="false" Mask="false">true</Config>
+    <Config Name="Inject Context" Target="AGENTMEMORY_INJECT_CONTEXT" Default="true|false" Mode="" Description="Inject recalled memories into agent prompts at session start." Type="Variable" Display="advanced" Required="false" Mask="false">true</Config>
+    <Config Name="Consolidation" Target="CONSOLIDATION_ENABLED" Default="true|false" Mode="" Description="4-tier consolidation pipeline (working, episodic, semantic, procedural) + decay." Type="Variable" Display="advanced" Required="false" Mask="false">true</Config>
+    <Config Name="Graph Extraction" Target="GRAPH_EXTRACTION_ENABLED" Default="true|false" Mode="" Description="Extract concept-graph edges on remember; powers graph-traversal recall." Type="Variable" Display="advanced" Required="false" Mask="false">true</Config>
+    <Config Name="Decay Days" Target="CONSOLIDATION_DECAY_DAYS" Default="14" Mode="" Description="Age in days after which non-reinforced memories decay during consolidation. Upstream default 30." Type="Variable" Display="advanced" Required="false" Mask="false">14</Config>
+    <Config Name="Reflect (auto-lessons)" Target="AGENTMEMORY_REFLECT" Default="false|true" Mode="" Description="Periodically auto-synthesize lessons from memories." Type="Variable" Display="advanced-hide" Required="false" Mask="false">false</Config>
+    <Config Name="Graph Batch Size" Target="GRAPH_EXTRACTION_BATCH_SIZE" Default="8" Mode="" Description="Memories processed per graph-extraction batch." Type="Variable" Display="advanced-hide" Required="false" Mask="false">8</Config>
+    <Config Name="Max Obs/Session" Target="MAX_OBS_PER_SESSION" Default="200" Mode="" Description="Per-session observation cap before consolidation triggers. Upstream default 500." Type="Variable" Display="advanced-hide" Required="false" Mask="false">200</Config>
+    <Config Name="Drop Stale Index" Target="AGENTMEMORY_DROP_STALE_INDEX" Default="false|true" Mode="" Description="Recovery toggle: drop on-disk BM25 / vector index on startup if the dimension guard fires. Enable once to recover from a stuck index, then turn off." Type="Variable" Display="advanced-hide" Required="false" Mask="false">false</Config>
+    <Config Name="Image Embeddings (experimental)" Target="AGENTMEMORY_IMAGE_EMBEDDINGS" Default="false|true" Mode="" Description="Enable image embeddings when an image-capable provider is present. Experimental." Type="Variable" Display="advanced-hide" Required="false" Mask="false">false</Config>
+
+    <!-- Search tuning -->
+    <Config Name="BM25 Weight" Target="BM25_WEIGHT" Default="0.4" Mode="" Description="Hybrid search weight for the BM25 (keyword) leg." Type="Variable" Display="advanced-hide" Required="false" Mask="false">0.4</Config>
+    <Config Name="Vector Weight" Target="VECTOR_WEIGHT" Default="0.6" Mode="" Description="Hybrid search weight for the vector (semantic) leg." Type="Variable" Display="advanced-hide" Required="false" Mask="false">0.6</Config>
+    <Config Name="Graph Weight" Target="AGENTMEMORY_GRAPH_WEIGHT" Default="0.2" Mode="" Description="Graph-traversal bonus on smart-search ranking." Type="Variable" Display="advanced-hide" Required="false" Mask="false">0.2</Config>
+    <Config Name="Context Token Budget" Target="TOKEN_BUDGET" Default="2000" Mode="" Description="Max tokens injected via mem::context per session." Type="Variable" Display="advanced-hide" Required="false" Mask="false">2000</Config>
+    <Config Name="Summarize Chunk Size" Target="SUMMARIZE_CHUNK_SIZE" Default="400" Mode="" Description="Observations per chunk when summarising large (e.g. imported) sessions." Type="Variable" Display="advanced-hide" Required="false" Mask="false">400</Config>
+    <Config Name="Summarize Chunk Concurrency" Target="SUMMARIZE_CHUNK_CONCURRENCY" Default="6" Mode="" Description="Parallel chunk LLM calls during chunked summarise. Bump for large imports on high-throughput providers." Type="Variable" Display="advanced-hide" Required="false" Mask="false">6</Config>
+
+    <!-- Snapshots -->
+    <Config Name="Snapshots Enabled" Target="SNAPSHOT_ENABLED" Default="false|true" Mode="" Description="Periodic snapshots of state_store + stream_store for point-in-time backup/restore." Type="Variable" Display="advanced" Required="false" Mask="false">false</Config>
+    <Config Name="Snapshot Dir" Target="SNAPSHOT_DIR" Default="/data/snapshots" Mode="" Description="Where snapshots are written. Keep under /data so they land on the persistent appdata volume." Type="Variable" Display="advanced-hide" Required="false" Mask="false">/data/snapshots</Config>
+    <Config Name="Snapshot Interval (s)" Target="SNAPSHOT_INTERVAL" Default="3600" Mode="" Description="Seconds between snapshots." Type="Variable" Display="advanced-hide" Required="false" Mask="false">3600</Config>
+
+    <!-- Team sharing -->
+    <Config Name="Team Mode" Target="TEAM_MODE" Default="" Mode="" Description="Set to shared to scope memories to (TEAM_ID, USER_ID) tuples for multi-user deployments. Leave blank for single-user." Type="Variable" Display="advanced-hide" Required="false" Mask="false"/>
+    <Config Name="Team ID" Target="TEAM_ID" Default="" Mode="" Description="Team identifier when TEAM_MODE=shared. Example: home, acme." Type="Variable" Display="advanced-hide" Required="false" Mask="false"/>
+    <Config Name="User ID" Target="USER_ID" Default="" Mode="" Description="User identifier within the team when TEAM_MODE=shared." Type="Variable" Display="advanced-hide" Required="false" Mask="false"/>
+</Container>

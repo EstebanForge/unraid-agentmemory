@@ -1,0 +1,8 @@
+.git
+.github
+README.md
+template/
+docs/
+assets/
+*.md
+agentmemory.version

@@ -1,0 +1,73 @@
+name: release
+
+# Builds a multi-arch (amd64 + arm64) agentmemory image and pushes it to
+# ghcr.io under the repo owner's namespace. Runs ONLY on version tags
+# (1.0.0, 1.1.0, ...; bare semver, no v prefix); commits to main do not
+# trigger a build. Cut a release with: git tag 1.0.0 && git push --tags.
+#
+# Two version concepts:
+#   - release version: taken from the tag (leading v stripped). Drives the
+#     image tags and the CHANGELOG. This repo's own semver.
+#   - bundled agentmemory version: read from agentmemory.version. A build
+#     detail (which upstream agentmemory npm release is baked in).
+# The iii engine stays pinned to 0.11.2 (see Dockerfile); do not bump it.
+
+on:
+  push:
+    tags: ["*.*.*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version to tag the image with, e.g. 1.0.0 (manual runs only)"
+        required: true
+        default: "0.0.0-manual"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Release version (from tag or manual input)
+        id: rel
+        env:
+          INPUT_VER: ${{ inputs.version }}
+        run: |
+          if [ -n "$INPUT_VER" ]; then v="$INPUT_VER"; else v="${GITHUB_REF_NAME#v}"; fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+      - name: Bundled agentmemory version (from file)
+        id: am
+        run: echo "version=$(tr -d '[:space:]' < agentmemory.version)" >> "$GITHUB_OUTPUT"
+
+      - name: Lowercase owner
+        id: owner
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/agentmemory" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            AGENTMEMORY_VERSION=${{ steps.am.outputs.version }}
+            III_VERSION=0.11.2
+            III_SDK_VERSION=0.11.2
+          push: true
+          tags: |
+            ${{ steps.owner.outputs.name }}:${{ steps.rel.outputs.version }}
+            ${{ steps.owner.outputs.name }}:${{ steps.rel.outputs.version }}-am${{ steps.am.outputs.version }}
+            ${{ steps.owner.outputs.name }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

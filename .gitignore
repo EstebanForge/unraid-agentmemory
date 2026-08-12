@@ -1,0 +1,16 @@
+# macOS
+.DS_Store
+
+# Editors / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Local environment files (keep secrets out of the tree)
+.env
+.env.*
+
+# Local tool indexes (per-machine, not shareable)
+.codegraph/
