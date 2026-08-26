@@ -1,6 +1,6 @@
 # PROJECT KNOWLEDGE BASE
 
-**Generated:** 2026-08-12 (updated for 1.0.0)
+**Generated:** 2026-08-12 (updated for 1.0.1)
 
 ## OVERVIEW
 
@@ -18,7 +18,7 @@ Upstream: [agentmemory](https://www.agent-memory.dev/) (npm only, no official im
 Two independent versions:
 
 - **Release version** (this repo's semver, e.g. `1.0.0`): comes from the git tag (`1.0.0`). Drives the image tags and `CHANGELOG.md`.
-- **Bundled agentmemory version** (e.g. `0.9.28`): read from `agentmemory.version`. A build detail (which upstream agentmemory npm release is baked in).
+- **Bundled agentmemory version** (e.g. `0.9.29`): read from `agentmemory.version`. A build detail (which upstream agentmemory npm release is baked in).
 - **iii engine**: pinned to `0.11.2` in the Dockerfile. Do not bump (see NOTES).
 
 ## STRUCTURE
@@ -27,7 +27,7 @@ Two independent versions:
 .
 ├── Dockerfile              # 2-stage build: iii engine binary + agentmemory worker (npm) on node:24-slim
 ├── entrypoint.sh           # First-boot: generate iii config, seed HMAC, gate viewer, drop privs
-├── agentmemory.version     # Bundled agentmemory version (0.9.28); single source for the build arg
+├── agentmemory.version     # Bundled agentmemory version (0.9.29); single source for the build arg
 ├── CHANGELOG.md            # Release history (Keep a Changelog); current [1.0.0]
 ├── template/
 │   └── agentmemory.xml     # Unraid CA template: 47 configurable fields (multi-provider)

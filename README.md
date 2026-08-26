@@ -31,7 +31,7 @@ CI (`.github/workflows/release.yml`) builds both architectures and pushes to GHC
 Two version concepts:
 
 - **Release version** (this repo's semver, e.g. `1.0.0`): taken from the git tag. Drives the image tags and the CHANGELOG.
-- **Bundled agentmemory version** (e.g. `0.9.28`): read from [`agentmemory.version`](agentmemory.version). A build detail (which upstream agentmemory release is baked in).
+- **Bundled agentmemory version** (e.g. `0.9.29`): read from [`agentmemory.version`](agentmemory.version). A build detail (which upstream agentmemory release is baked in).
 
 To cut a release:
 
@@ -103,7 +103,7 @@ The template exposes the full config surface (47 fields). The values below are t
 
 **Auth and viewer**: `AGENTMEMORY_SECRET` (bearer auth, REST + viewer), `VIEWER_ALLOWED_HOSTS` (set to the browse address to make the viewer LAN-reachable).
 
-**Defaults baked into the template** (all overrideable): auto-compress on, context injection on, consolidation on (14-day decay), graph extraction on, 200 obs/session, `GEMINI_MODEL=gemini-2.5-flash-lite`, tool surface `core`.
+**Defaults baked into the template** (all overrideable): auto-compress on, context injection on, consolidation on (14-day decay), graph extraction on, 200 obs/session, `GEMINI_MODEL=gemini-3.5-flash-lite`, tool surface `core`.
 
 ## Known caveats
 

@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.0.1] - 2026-08-26
+
+### Changed
+- Bundled agentmemory 0.9.28 → 0.9.29. The iii engine stays pinned at 0.11.2 (upstream pins `iii-sdk` to exactly 0.11.2 in both releases). Highlights relevant to this image: hybrid ranking (BM25 + vector + graph) reaches the primary `mem::search` recall path (it was keyword-only in 0.9.28), provider default models bumped to current generations (Gemini default `gemini-3.7-flash`), MCP protocol version negotiation fixed, superseded memory versions no longer surface in recall.
+- `GEMINI_MODEL` template default `gemini-2.5-flash-lite` → `gemini-3.5-flash-lite`. Google retired 2.5-flash-lite for new API users, so every LLM call (compression, summarisation, consolidation, graph extraction) returned 404 until the model was overridden. Verified live: compression succeeds on `gemini-3.5-flash-lite`.
+
+Bundled versions: agentmemory 0.9.29, iii engine 0.11.2, Node 24.
+
 ## [1.0.0] - 2026-08-12
 
 First release. Packaging of upstream [agentmemory](https://www.agent-memory.dev/) for Unraid.

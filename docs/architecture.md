@@ -88,10 +88,10 @@ To re-vendor from upstream (when `deploy/fly/Dockerfile` or `entrypoint.sh` chan
 - **Tag-driven CI, not per-commit.** The workflow runs only on version tags (`X.Y.Z`) so commits to `main` do not rebuild. The release version is taken from the tag; the bundled agentmemory version from `agentmemory.version`.
 - **Multi-provider template surface.** The template exposes every LLM and embedding provider agentmemory supports (Gemini, OpenAI, OpenAI-compatible, Anthropic, MiniMax, OpenRouter, Voyage, Cohere), so users pick their provider at install without hand-editing. Cloud embeddings are mandatory (local omitted).
 - **PNG tile icon, not SVG.** Unraid tile rendering historically prefers PNG. The tile icon is `logo.png`, rendered at 256x256 from upstream's `assets/logo.svg`. Self-hosted in `assets/` so the tile does not depend on upstream.
-- **Bundled agentmemory 0.9.28** (npm `latest` dist-tag). The repo's own version is independent semver (1.0.0) from the git tag.
+- **Bundled agentmemory 0.9.29** (npm `latest` dist-tag). The repo's own version is independent semver (1.0.1) from the git tag.
 
 ## Known risks
 
-- The `GEMINI_MODEL` tag (`gemini-2.5-flash-lite`) is carried from the source `.env`. If Google renames or withdraws that tag, compression fails. Verify the tag resolves before relying on it; fall back to `gemini-2.5-flash` (reintroduces burst stream-drop risk) if it does not.
+- The `GEMINI_MODEL` tag (`gemini-3.5-flash-lite`) is set by the template, carried from release 1.0.1. `gemini-2.5-flash-lite` is retired by Google (404 for new API users) and must not be used. The upstream code default (0.9.29) is `gemini-3.7-flash`; the template overrides it with the non-thinking lite tier to avoid burst stream drops. If Google renames or withdraws the tag again, compression fails with 404s; verify the tag resolves before relying on it.
 - `AGENTMEMORY_SECRET` is the only auth on `:3111` and `:3113`. Fine on a trusted home LAN. On any other network, put the container behind a reverse proxy with TLS or restrict the published ports.
 - Cold start is ~9 to 10 seconds while indexes hydrate. The healthcheck `start_period` of 30 seconds covers it.

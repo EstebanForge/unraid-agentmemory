@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <Container version="2">
     <Name>agentmemory</Name>
-    <Repository>ghcr.io/estebanforge/agentmemory:1.0.0</Repository>
+    <Repository>ghcr.io/estebanforge/agentmemory:1.0.1</Repository>
     <Registry>https://github.com/users/EstebanForge/packages/container/agentmemory</Registry>
     <Network>bridge</Network>
     <Privileged>false</Privileged>
@@ -42,7 +42,7 @@
     <Config Name="MCP Tool Surface" Target="AGENTMEMORY_TOOLS" Default="core|all" Mode="" Description="Tools exposed to MCP clients. core = 7 essential tools (default); all = 51 tools. Bump to all for power-user clients." Type="Variable" Display="advanced" Required="false" Mask="false">core</Config>
 
     <!-- Models -->
-    <Config Name="Gemini Model" Target="GEMINI_MODEL" Default="gemini-2.5-flash-lite" Mode="" Description="Gemini LLM model. gemini-2.5-flash-lite is non-thinking and avoids burst stream drops; the default gemini-2.5-flash can drop long streams under load." Type="Variable" Display="advanced" Required="false" Mask="false">gemini-2.5-flash-lite</Config>
+    <Config Name="Gemini Model" Target="GEMINI_MODEL" Default="gemini-3.5-flash-lite" Mode="" Description="Gemini LLM model. gemini-3.5-flash-lite is non-thinking and avoids burst stream drops. gemini-2.5-flash-lite is retired by Google (404 for new users) and must not be used." Type="Variable" Display="advanced" Required="false" Mask="false">gemini-3.5-flash-lite</Config>
     <Config Name="Anthropic Model" Target="ANTHROPIC_MODEL" Default="claude-sonnet-4-5" Mode="" Description="Anthropic model id. Examples: claude-sonnet-4-5, claude-haiku-4-5, claude-opus-4-1. Use a current id." Type="Variable" Display="advanced" Required="false" Mask="false"/>
     <Config Name="Anthropic Base URL" Target="ANTHROPIC_BASE_URL" Default="" Mode="" Description="Override for Anthropic-compatible proxies or Azure AI Foundry. Leave blank for api.anthropic.com." Type="Variable" Display="advanced-hide" Required="false" Mask="false"/>
     <Config Name="MiniMax Model" Target="MINIMAX_MODEL" Default="" Mode="" Description="MiniMax model id. Example: MiniMax-M2." Type="Variable" Display="advanced" Required="false" Mask="false"/>
