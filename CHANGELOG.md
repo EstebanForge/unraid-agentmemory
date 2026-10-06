@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.0.2] - 2026-09-06
+
+### Fixed
+
+- Random "agentmemory isn't responding" failures mid-session. Root cause: the engine's health route answers 503 (fail-closed) whenever its internal status reaches `critical`, and `critical` fired spuriously. The status is driven by `heapUsed / heapTotal > 95%` above a 512 MiB RSS floor, both hardcoded defaults with no env or config override, and V8 legitimately spikes that ratio during GC cycles under the LLM-compress allocation bursts. Observed live: 20/20 health probes returned 503 while searches kept completing in the same window. A docker restart cleared it until the working set crept back.
+- New build-time patch (`patches/health-thresholds.mjs`, deviation #4) raises the vendored worker's `memoryRssFloorBytes` to 1.5 GiB and `memoryCriticalPercent` to 98, so the critical state means "actually near memory exhaustion". `degraded` (warn 80%) is untouched; clients treat degraded as operational. The build fails if a bundled-version bump changes the dist shape, so the patch cannot be silently lost.
+
+Bundled versions: agentmemory 0.9.29, iii engine 0.11.2, Node 24.
+
 ## [1.0.1] - 2026-08-26
 
 ### Changed

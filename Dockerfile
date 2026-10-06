@@ -37,9 +37,23 @@ COPY --from=iii-image /app/iii /usr/local/bin/iii
 # (Gemini via GEMINI_API_KEY) is mandatory. This is deliberate: it keeps
 # the image small and makes CPU-weak hosts (e.g. Intel Celeron NAS)
 # viable by forcing embeddings off-host.
+# Health-threshold patch, deviation #4 from upstream. The vendored worker's
+# health evaluation flags `critical` (health route 503, fail-closed) when the
+# V8 heapUsed/heapTotal ratio crosses 95% above a 512 MiB RSS floor, and that
+# ratio spikes routinely during GC under LLM-compress allocation bursts, so a
+# healthy server randomly reported "down" to clients. Upstream has no env or
+# config override (evaluateHealth() is always called with no config argument),
+# hence a build-time rewrite of the installed dist. See the script header and
+# docs/architecture.md for the full rationale. A bundled-version bump
+# re-applies this automatically; the build fails loudly if the dist shape
+# changes and the patterns no longer match.
+COPY patches/health-thresholds.mjs /tmp/health-thresholds.mjs
+
 WORKDIR /opt/agentmemory
 RUN printf '{"name":"agentmemory-deploy","version":"1.0.0","private":true,"overrides":{"iii-sdk":"%s"}}\n' "${III_SDK_VERSION}" > package.json \
  && npm install "@agentmemory/agentmemory@${AGENTMEMORY_VERSION}" --omit=optional --no-fund --no-audit \
+ && node /tmp/health-thresholds.mjs \
+ && rm /tmp/health-thresholds.mjs \
  && ln -s /opt/agentmemory/node_modules/.bin/agentmemory /usr/local/bin/agentmemory
 
 ENV AGENTMEMORY_III_VERSION=${III_VERSION} \

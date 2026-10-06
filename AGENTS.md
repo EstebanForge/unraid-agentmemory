@@ -26,6 +26,8 @@ Two independent versions:
 ```
 .
 ├── Dockerfile              # 2-stage build: iii engine binary + agentmemory worker (npm) on node:24-slim
+├── patches/
+│   └── health-thresholds.mjs  # Build-time rewrite of vendored worker dist (deviation #4)
 ├── entrypoint.sh           # First-boot: generate iii config, seed HMAC, gate viewer, drop privs
 ├── agentmemory.version     # Bundled agentmemory version (0.9.29); single source for the build arg
 ├── CHANGELOG.md            # Release history (Keep a Changelog); current [1.0.0]
@@ -88,7 +90,7 @@ This is a packaging repo. There is no test suite, linter, or build step run loca
 2.  **The `overrides` pin is load-bearing.** `npm install -g` ignores `overrides`. agentmemory is installed into `/opt/agentmemory` (a local prefix) whose `package.json` pins `iii-sdk` to 0.11.2. Without it the caret range `^0.11.2` resolves to 0.11.6 and breaks. Do not change the install method without preserving this.
 3.  **No local embeddings; multi-provider LLM.** `--omit=optional` drops `@huggingface/transformers`, so a cloud embedding provider is mandatory. LLM providers: Gemini, OpenAI, OpenAI-compatible (DeepSeek, Z.ai GLM, SiliconFlow, vLLM, Ollama via `OPENAI_BASE_URL`), Anthropic, MiniMax, OpenRouter. Embedding providers: Gemini, OpenAI, Voyage, Cohere, OpenRouter. Anthropic and MiniMax are LLM-only (no embeddings API) and must be paired with an embedding provider. Detection order if multiple keys set: OpenAI > MiniMax > Anthropic > Gemini > OpenRouter (LLM); Gemini > OpenAI > Voyage > Cohere > OpenRouter (embeddings).
 4.  **Observability is disabled** in the generated iii config. Re-enabling at `sampling_ratio: 1.0` triggers a log feedback loop (issue #519, 137 GB to `daemon.log.new`). Re-enable per-session only, low sampling, watch disk.
-5.  **Three deviations from upstream entrypoint** (the point of the fork): (a) observability off, (b) `AGENTMEMORY_SECRET` honored from env, (c) viewer binds `0.0.0.0` only when `VIEWER_ALLOWED_HOSTS` is set (without it, a non-loopback viewer throws an uncaught `ViewerConfigError` that kills the whole process). Re-vendoring requires re-applying all three. See `docs/architecture.md`.
+5.  **Four deviations from upstream** (the point of the fork): (a) observability off, (b) `AGENTMEMORY_SECRET` honored from env, (c) viewer binds `0.0.0.0` only when `VIEWER_ALLOWED_HOSTS` is set (without it, a non-loopback viewer throws an uncaught `ViewerConfigError` that kills the whole process), (d) build-time health-threshold patch (`patches/health-thresholds.mjs`: RSS floor 512 MiB → 1.5 GiB, critical 95% → 98%) because the engine's `evaluateHealth()` takes no config from env and its defaults spuriously 503 the health route during V8 GC spikes. Re-vendoring requires re-applying all four. See `docs/architecture.md`.
 6.  **GHCR visibility**: package is PUBLIC. Unraid pulls anonymously. (New packages default private; this one is already public.)
 7.  **Release procedure** (tag-driven): (1) update `CHANGELOG.md`, (2) set `<Repository>` in `template/agentmemory.xml` to `:<release>`, (3) commit to main, (4) `git tag X.Y.Z && git push --tags`. CI builds `:<release>`, `:<release>-am<bundled>`, `:latest`. Main commits do NOT build. `/data` persists across image swaps.
 8.  **Persistent path is `/data` only** (`state_store.db`, `stream_store`, `.hmac`). Cache pool only, not the array (random IO). `.hmac` regenerates if absent, invalidating old bearer tokens (clients re-auth with `AGENTMEMORY_SECRET`).

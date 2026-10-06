@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <Container version="2">
     <Name>agentmemory</Name>
-    <Repository>ghcr.io/estebanforge/agentmemory:1.0.1</Repository>
+    <Repository>ghcr.io/estebanforge/agentmemory:1.0.2</Repository>
     <Registry>https://github.com/users/EstebanForge/packages/container/agentmemory</Registry>
     <Network>bridge</Network>
     <Privileged>false</Privileged>

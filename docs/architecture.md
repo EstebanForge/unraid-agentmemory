@@ -35,6 +35,14 @@ The entrypoint is vendored from upstream with three justified changes. Each is c
 
 3. **The viewer opts into `0.0.0.0` only when `VIEWER_ALLOWED_HOSTS` is set.** Upstream only does the non-loopback bind inside Fly. agentmemory refuses to start a non-loopback viewer unless both `VIEWER_ALLOWED_HOSTS` (exact Host-header match, anti-DNS-rebind) and `AGENTMEMORY_SECRET` (bearer auth) are set; without them `startViewerServer` throws an uncaught `ViewerConfigError` and the whole process exits. The entrypoint therefore binds wide only when the operator supplies `VIEWER_ALLOWED_HOSTS` (the address they will browse), and leaves the safe loopback bind otherwise. The viewer frontend has a built-in login modal that asks for `AGENTMEMORY_SECRET`, so browser access is open URL, paste secret, use it, with no SSH tunnel.
 
+## A fourth deviation from upstream's worker: health thresholds
+
+The npm worker is patched at build time (`patches/health-thresholds.mjs`) because the engine's health evaluation has no override hook: `evaluateHealth()` is always called with no config argument, so its hardcoded defaults (`memoryCriticalPercent: 95`, `memoryRssFloorBytes: 512 MiB`) are unreachable from env or config.
+
+Those defaults misfire on a healthy NAS. The engine flags `critical` when `heapUsed / heapTotal` crosses 95% while RSS is above the floor, and V8 legitimately spikes that ratio during GC cycles under the LLM-compress allocation bursts. At `critical` the `/agentmemory/health` route answers 503 (fail-closed) while reads and writes keep serving, and clients treat any non-2xx health as "server down". Observed live: 20/20 health probes returned 503 across several seconds while searches kept completing in the same window.
+
+The patch raises the floor to 1.5 GiB RSS and critical to 98%, so the alert fires only near genuine memory exhaustion. The target host has 32 GB and the container carries no memory limit, so 1.5 GiB RSS is a real signal rather than a baseline. `degraded` (warn 80%) is untouched and stays cosmetic. The build fails if a bundled-version bump changes the dist shape and the patterns stop matching, so the patch cannot be silently lost.
+
 ## Build and release pipeline
 
 `.github/workflows/release.yml` runs only on version tags (e.g. `1.0.0`) and manual dispatch. Commits to `main` do not build. It:
