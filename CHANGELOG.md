@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Template: `OPENAI_MODEL` variable (OpenAI LLM model). Upstream default is `gpt-5.6-luna`; `gpt-5-mini` is the cheap choice for compression. Mirrors the existing Gemini/Anthropic/MiniMax/OpenRouter model fields.
+
 ## [1.0.3] - 2026-10-08
 
 ### Fixed
