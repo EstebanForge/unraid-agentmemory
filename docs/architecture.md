@@ -27,15 +27,17 @@ The Dockerfile installs with `--omit=optional`, which drops `@huggingface/transf
 
 This is deliberate. It keeps the image small and makes CPU-weak hosts viable by forcing embeddings off-host. The target NAS (see below) is a Celeron; local embeddings on it would be 5 to 10 times slower than the dev machine it replaces.
 
-## Three deviations from upstream's entrypoint
+## Four deviations from upstream's entrypoint
 
-The entrypoint is vendored from upstream with three justified changes. Each is commented in `entrypoint.sh`.
+The entrypoint is vendored from upstream with four justified changes. Each is commented in `entrypoint.sh`.
 
 1. **Observability disabled in the generated iii config.** Upstream enables it at `sampling_ratio: 1.0`. Under sustained load the log subscriber falls behind, the engine disconnects, and the worker enters a reconnect backoff loop. Full sampling also drove a log feedback loop that wrote 137 GB to `daemon.log.new` (issue #519). Disabling is the conservative, proven-safe choice.
 
 2. **The HMAC secret honors an env-supplied `AGENTMEMORY_SECRET`.** Upstream always generates a random secret and prints it once. For a LAN-exposed container you want to control the bearer secret so clients can match it without scraping logs. The entrypoint seeds `/data/.hmac` from `AGENTMEMORY_SECRET` when set, and falls back to random generation when absent.
 
 3. **The viewer opts into `0.0.0.0` only when `VIEWER_ALLOWED_HOSTS` is set.** Upstream only does the non-loopback bind inside Fly. agentmemory refuses to start a non-loopback viewer unless both `VIEWER_ALLOWED_HOSTS` (exact Host-header match, anti-DNS-rebind) and `AGENTMEMORY_SECRET` (bearer auth) are set; without them `startViewerServer` throws an uncaught `ViewerConfigError` and the whole process exits. The entrypoint therefore binds wide only when the operator supplies `VIEWER_ALLOWED_HOSTS` (the address they will browse), and leaves the safe loopback bind otherwise. The viewer frontend has a built-in login modal that asks for `AGENTMEMORY_SECRET`, so browser access is open URL, paste secret, use it, with no SSH tunnel.
+
+4. **The engine is supervised separately with an unbounded wait.** Upstream's CLI gives the engine 15 s to become ready (`waitForEngine(15e3)`, hardcoded in `src/cli.ts` and pinned by its tests; the `AGENTMEMORY_READY_TIMEOUT_MS` knob requested in issue #634 does not exist). Hydrating a multi-GB store takes longer than that (measured ~18 s at 3.4 GB on the target NAS), so the stock path aborts and the container dies on every boot. The entrypoint starts the engine itself, waits for its API with no timeout (30 min safety cap), then attaches the worker with `--no-engine` + `III_ENGINE_URL`, the CLI's supported attach mode. Two constraints discovered while debugging: the engine log must live outside the config's directory (the config watcher reloads on any filesystem event there, and its own log writes otherwise trigger a permanent ~500 ms reload loop on engine 0.22.1), and `MALLOC_ARENA_MAX=2` is exported to match upstream's own Linux tuning (agentmemory #1457 / iii #2257: unbounded glibc arenas multiplied engine RSS several-fold on multi-GB stores).
 
 ## A fourth deviation from upstream's worker: health thresholds
 

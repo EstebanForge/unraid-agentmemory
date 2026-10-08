@@ -9,7 +9,9 @@
 # 3. Seed the HMAC secret on first boot and persist it to /data/.hmac
 #    (chmod 600) so it survives restarts.
 #
-# Then it execs the agentmemory CLI under gosu as the unprivileged `node` user.
+# Then it starts the iii engine, waits for it without a timeout, and execs
+# the agentmemory CLI under gosu as the unprivileged `node` user, attached
+# to the already-running engine (see deviation #4 at the exec site).
 #
 # Deviations from upstream deploy/entrypoint.sh (justified):
 # - Observability DISABLED in the generated config. Upstream enables it at
@@ -144,4 +146,51 @@ if [ -n "${VIEWER_ALLOWED_HOSTS:-}" ]; then
     export AGENTMEMORY_VIEWER_HOST VIEWER_ALLOWED_HOSTS
 fi
 
-exec gosu "$RUN_AS" agentmemory "$@"
+# Deviation #4: supervise the engine with an unbounded wait, then attach
+# the worker. Upstream's CLI gives the engine 15 s to become ready
+# (waitForEngine(15e3) is hardcoded in src/cli.ts and pinned by its tests;
+# the AGENTMEMORY_READY_TIMEOUT_MS knob proposed in issue #634 does not
+# exist in 0.9.30). Hydrating a multi-GB store takes longer than that
+# (measured ~18 s at 3.4 GB, and the first boot after a version switch is
+# slower), so the stock path aborts and the container dies. We start the
+# engine here, wait for its API with no timeout, then attach the worker
+# with --no-engine + III_ENGINE_URL, the CLI's supported attach mode.
+#
+# The engine log MUST live outside the config's directory: the engine's
+# config watcher reloads on filesystem events in that directory, and its
+# own log writes otherwise trigger a permanent ~500 ms reload loop
+# (observed on engine 0.22.1; zero reloads once the log is elsewhere).
+#
+# MALLOC_ARENA_MAX=2 matches upstream's engine tuning on Linux (agentmemory
+# #1457 / iii #2257: unbounded glibc arenas multiplied engine RSS several
+# times on multi-GB stores).
+export MALLOC_ARENA_MAX=2
+ENG_CONF=/conf
+ENG_LOG=/var/log/agentmemory
+ENG_WORK=/var/lib/agentmemory
+mkdir -p "$ENG_CONF" "$ENG_LOG" "$ENG_WORK"
+cp "$III_CONFIG" "$ENG_CONF/iii.yaml"
+chown -R "$RUN_AS" "$ENG_CONF" "$ENG_LOG" "$ENG_WORK"
+# The engine creates ./config under its working directory; the dedicated
+# ENG_WORK keeps that out of both / and the watched config dir.
+gosu "$RUN_AS" sh -c "cd '$ENG_WORK' && exec iii --config '$ENG_CONF/iii.yaml' >> '$ENG_LOG/engine.log' 2>&1" &
+ENG_PID=$!
+i=0
+until curl -s -o /dev/null -m 2 http://127.0.0.1:3111/; do
+    if ! kill -0 "$ENG_PID" 2>/dev/null; then
+        echo "agentmemory entrypoint: engine exited during startup" >&2
+        tail -n 40 "$ENG_LOG/engine.log" >&2 || true
+        exit 1
+    fi
+    i=$((i + 1))
+    if [ "$i" -gt 360 ]; then
+        echo "agentmemory entrypoint: engine not ready after 30 min" >&2
+        exit 1
+    fi
+    sleep 5
+done
+echo "agentmemory entrypoint: engine ready, attaching worker"
+III_ENGINE_URL='ws://127.0.0.1:49134'
+export III_ENGINE_URL
+
+exec gosu "$RUN_AS" agentmemory --no-engine "$@"
