@@ -39,6 +39,21 @@ Releases are tag-driven. When the maintainer publishes a new release (an `X.Y.Z`
 1. Unraid Apps tab: the agentmemory container shows an update. Click Update.
 2. `/data` persists across the image swap, so no data loss.
 
+### Manual swap via CLI (advanced)
+
+If you recreate the container with `docker run` instead of the Unraid UI (for example to recover a broken container without waiting for the UI), two rules keep the install consistent:
+
+1. Filter the environment you carry over. Image-injected variables (`PATH`, `NODE_VERSION`, `YARN_VERSION`, `TINI_SUBREAPER`, `HOST_*`) and `AGENTMEMORY_III_VERSION` must be excluded from the `--env-file`; a stale value overrides the new image's own pinned engine version.
+2. Carry the dockerMan labels. A container created by plain `docker run` has no `net.unraid.docker.*` labels and the Unraid Docker tab loses its Edit/Update buttons. Add them back on the run:
+
+```sh
+--label net.unraid.docker.managed=dockerman \
+--label 'net.unraid.docker.webui=http://[IP]:[PORT:3113]' \
+--label net.unraid.docker.icon='https://raw.githubusercontent.com/EstebanForge/unraid-agentmemory/main/assets/logo.png'
+```
+
+dockerMan re-associates the container with `templates-user/my-agentmemory.xml` by container name once the managed label is present.
+
 To publish a release yourself (maintainer), see the Build and release section in the root README.
 
 Do not bump `III_VERSION` (the engine) without bumping `III_SDK_VERSION` (the worker dependency) to the same version agentmemory pins. See [architecture.md](architecture.md) for why.
