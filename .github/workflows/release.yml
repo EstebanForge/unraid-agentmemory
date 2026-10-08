@@ -10,7 +10,10 @@ name: release
 #     image tags and the CHANGELOG. This repo's own semver.
 #   - bundled agentmemory version: read from agentmemory.version. A build
 #     detail (which upstream agentmemory npm release is baked in).
-# The iii engine stays pinned to 0.11.2 (see Dockerfile); do not bump it.
+# The iii engine and iii-sdk versions come from the Dockerfile ARGs and must
+# move in lockstep with agentmemory's own iii-sdk pin (see Dockerfile and
+# AGENTS.md); the workflow deliberately does not restate them, so there is
+# exactly one place to bump.
 
 on:
   push:
@@ -62,8 +65,6 @@ jobs:
           platforms: linux/amd64,linux/arm64
           build-args: |
             AGENTMEMORY_VERSION=${{ steps.am.outputs.version }}
-            III_VERSION=0.11.2
-            III_SDK_VERSION=0.11.2
           push: true
           tags: |
             ${{ steps.owner.outputs.name }}:${{ steps.rel.outputs.version }}
