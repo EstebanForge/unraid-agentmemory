@@ -6,7 +6,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 
-- Template: `OPENAI_MODEL` variable (OpenAI LLM model). Upstream default is `gpt-5.6-luna`; `gpt-5-mini` is the cheap choice for compression. Mirrors the existing Gemini/Anthropic/MiniMax/OpenRouter model fields.
+- Template: `OPENAI_MODEL` variable (OpenAI LLM model). Upstream default is `gpt-5.6-luna`; `gpt-4o-mini` is the cheap choice for compression. `gpt-5`-family models are rejected by the OpenAI API (they require `max_completion_tokens`; the 0.9.30 worker sends the legacy `max_tokens` parameter). Mirrors the existing Gemini/Anthropic/MiniMax/OpenRouter model fields.
 
 ## [1.0.3] - 2026-10-08
 
