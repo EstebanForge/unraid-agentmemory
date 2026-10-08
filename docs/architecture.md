@@ -10,14 +10,16 @@ agentmemory's only distribution channel is npm. There is no official Docker imag
 
 The Dockerfile is vendored from `rohitg00/agentmemory/deploy/fly/Dockerfile` (the documented variant; the coolify one is identical minus an explanatory comment). Two stages:
 
-1. `FROM iiidev/iii:0.11.2 AS iii-image` to grab the prebuilt iii engine binary.
+1. `FROM iiidev/iii:0.22.1 AS iii-image` to grab the prebuilt iii engine binary.
 2. `FROM node:24-slim`, copy the engine binary in, install `@agentmemory/agentmemory` from npm.
 
-### The iii-sdk overrides pin (critical)
+### The iii-sdk overrides pin (lockstep guard)
 
-agentmemory declares `iii-sdk: ^0.11.2`, a caret range that resolves to the newest 0.11.x. That is 0.11.6, which introduces a sandbox-everything worker model the agentmemory CLI is not refactored for. Running against 0.11.6 surfaces as EPIPE reconnect loops and empty search-after-save.
+The engine binary in stage 1 and the worker's `iii-sdk` dependency must stay on the same version. Mismatch history: agentmemory 0.9.28/0.9.29 declared `iii-sdk: ^0.11.2`, a caret range that drifted to 0.11.6, which introduced a sandbox-everything worker model the agentmemory CLI was not refactored for. Running against 0.11.6 surfaced as EPIPE reconnect loops and empty search-after-save. The pin lifted in 1.0.3: agentmemory 0.9.30 pins `iii-sdk` to exactly 0.22.1 and pairs with engine 0.22.1.
 
-The Dockerfile works around this by installing agentmemory into a dedicated prefix (`/opt/agentmemory`) whose `package.json` sets `"overrides": {"iii-sdk": "0.11.2"}`. npm respects `overrides` only for local installs, not `install -g`, which is why the prefix exists. If you change the install method, preserve this override or the build silently breaks against 0.11.6.
+The Dockerfile keeps the guard by installing agentmemory into a dedicated prefix (`/opt/agentmemory`) whose `package.json` sets `"overrides": {"iii-sdk": "<III_SDK_VERSION>"}`. npm respects `overrides` only for local installs, not `install -g`, which is why the prefix exists. With an exact upstream pin the override is a lockstep guard rather than a workaround, but it still fails the build loudly if `III_SDK_VERSION` is ever set to a version agentmemory cannot accept. If you change the install method, preserve the override.
+
+Verify the pairing before any engine bump: `npm view @agentmemory/agentmemory@<version> dependencies.iii-sdk`.
 
 ### The embedding constraint
 
@@ -51,7 +53,7 @@ The patch raises the floor to 1.5 GiB RSS and critical to 98%, so the alert fire
 - builds both architectures (`linux/amd64`, `linux/arm64`) with buildx,
 - pushes to `ghcr.io/<owner>/agentmemory` with three tags: the version, the version with the iii pin suffix, and `latest`.
 
-Both base images (`iiidev/iii:0.11.2`, `node:24-slim`) are multi-arch, so the result runs on x86_64 and ARM Unraid hosts.
+Both base images (`iiidev/iii:0.22.1`, `node:24-slim`) are multi-arch, so the result runs on x86_64 and ARM Unraid hosts.
 
 After the first CI run, the GHCR package visibility defaults to private. Set it to public at `github.com/users/<owner>/packages/container/agentmemory/settings` so Unraid can pull anonymously. (Alternatively configure registry auth on Unraid, but public is simpler for personal use.)
 
@@ -81,7 +83,7 @@ To cut a release:
 
 To bump only the bundled agentmemory version: edit `agentmemory.version`, then cut a release.
 
-Do not bump `III_VERSION` or `III_SDK_VERSION` past 0.11.2 until upstream refactors for the 0.11.6 sandbox worker model. The pin lifts when that lands.
+Bump `III_VERSION` and `III_SDK_VERSION` together, set to the exact `iii-sdk` version agentmemory itself pins (verify: `npm view @agentmemory/agentmemory@<version> dependencies.iii-sdk`). Lockstep failure signature: EPIPE reconnect loops and empty search-after-save.
 
 To re-vendor from upstream (when `deploy/fly/Dockerfile` or `entrypoint.sh` change upstream):
 
@@ -96,7 +98,7 @@ To re-vendor from upstream (when `deploy/fly/Dockerfile` or `entrypoint.sh` chan
 - **Tag-driven CI, not per-commit.** The workflow runs only on version tags (`X.Y.Z`) so commits to `main` do not rebuild. The release version is taken from the tag; the bundled agentmemory version from `agentmemory.version`.
 - **Multi-provider template surface.** The template exposes every LLM and embedding provider agentmemory supports (Gemini, OpenAI, OpenAI-compatible, Anthropic, MiniMax, OpenRouter, Voyage, Cohere), so users pick their provider at install without hand-editing. Cloud embeddings are mandatory (local omitted).
 - **PNG tile icon, not SVG.** Unraid tile rendering historically prefers PNG. The tile icon is `logo.png`, rendered at 256x256 from upstream's `assets/logo.svg`. Self-hosted in `assets/` so the tile does not depend on upstream.
-- **Bundled agentmemory 0.9.29** (npm `latest` dist-tag). The repo's own version is independent semver (1.0.1) from the git tag.
+- **Bundled agentmemory 0.9.30** (npm `latest` dist-tag). The repo's own version is independent semver (1.0.3) from the git tag.
 
 ## Known risks
 

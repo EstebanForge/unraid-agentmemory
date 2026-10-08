@@ -46,11 +46,11 @@ workers:
       host: 0.0.0.0
       default_timeout: 180000
       cors:
-        allowed_origins:
-          - "http://localhost:3111"
-          - "http://localhost:3113"
-          - "http://127.0.0.1:3111"
-          - "http://127.0.0.1:3113"
+        # Inline flow array, matching upstream 0.9.30's bundled config
+        # shape. The CLI rewrites this file into iii-config.runtime.yaml
+        # at startup and its transform mangles block-style lists into
+        # invalid YAML (engine crash on boot, found in 1.0.3 E2E).
+        allowed_origins: ["http://localhost:3111", "http://localhost:3113", "http://127.0.0.1:3111", "http://127.0.0.1:3113"]
         allowed_methods: [GET, POST, PUT, DELETE, OPTIONS]
   - name: iii-state
     config:
@@ -58,6 +58,7 @@ workers:
         name: kv
         config:
           store_method: file_based
+          save_interval_ms: 2000
           file_path: /data/state_store.db
   - name: iii-queue
     config:
@@ -79,6 +80,7 @@ workers:
         name: kv
         config:
           store_method: file_based
+          save_interval_ms: 2000
           file_path: /data/stream_store
   # Observability intentionally DISABLED. With enabled=true the worker emits
   # spans/logs to ws://localhost:49134/otel; the subscriber falls behind under
@@ -95,6 +97,12 @@ workers:
       metrics_enabled: true
       logs_enabled: false
       logs_console_output: false
+  - name: iii-exec
+    config:
+      watch:
+        - src/**/*.ts
+      exec:
+        - node dist/index.mjs
 EOF
 chown "$RUN_AS" "$III_CONFIG"
 

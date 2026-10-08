@@ -2,6 +2,22 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.0.3] - 2026-10-08
+
+### Fixed
+
+- Unbounded engine memory growth. The 0.11.x engine's file-based KV store kept every scope (graph provenance, audit log, vector index, viewer stream backlog) resident in engine RAM with no cap; on a store that had grown to 3.4 GB, the engine idled at 5.8 GB RSS with the whole index and history in heap. Matches upstream issues #964, #1389, #1443 and #1153. agentmemory 0.9.30 moves the engine pin from 0.11.2 to 0.22.1 and bounds all four stores: graph provenance capped at 32 observation ids per record with boot-time compaction (`AGENTMEMORY_GRAPH_COMPACT_ON_BOOT`), audit log moved to monthly scopes with `AGENTMEMORY_AUDIT_RETENTION_MONTHS`, the vector index persisted in buckets (`AGENTMEMORY_VECTOR_BUCKET_SIZE`), and the viewer stream backlog capped (`AGENTMEMORY_VIEWER_STREAM_MAX`). BM25 is no longer persisted; it is rebuilt at boot.
+- Engine crash on boot with 0.22.1. The worker CLI rewrites the generated iii config into a runtime file at startup, and its transform mangled the block-style `cors.allowed_origins` list in our vendored entrypoint heredoc into invalid YAML. The heredoc now mirrors upstream 0.9.30's bundled config shape (inline flow array, `save_interval_ms`, new `iii-exec` worker) with the repo deviations re-applied: `0.0.0.0` binds on the HTTP and stream workers, `/data` store paths, observability disabled.
+
+### Changed
+
+- Bundled agentmemory 0.9.29 → 0.9.30 and iii engine / iii-sdk 0.11.2 → 0.22.1, upstream's validated pairing. The 0.11.x pin (v0.11.6 required a worker model the CLI was not refactored for: EPIPE reconnect loops, empty search-after-save) is lifted because the refactor shipped with the 0.9.30 pairing. The `overrides` pin stays as a lockstep guard: bump `III_VERSION` and `III_SDK_VERSION` together, always matching agentmemory's own `iii-sdk` requirement.
+- Dockerfile default `ARG AGENTMEMORY_VERSION` now tracks `agentmemory.version` (0.9.30); it had lagged at 0.9.28 since 1.0.0, so a build without the build-arg silently shipped an older worker.
+- The health-threshold patch (deviation #4) still applies on the new dist; the build fails loudly if the dist shape changes.
+- Verified E2E before tagging: livez health, save → BM25 search → viewer reachable on the new pairing, no EPIPE reconnect loops in logs.
+
+Bundled versions: agentmemory 0.9.30, iii engine 0.22.1, Node 24.
+
 ## [1.0.2] - 2026-09-06
 
 ### Fixed

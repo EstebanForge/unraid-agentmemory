@@ -4,7 +4,7 @@ Unraid template + self-contained Docker image for [agentmemory](https://www.agen
 
 This repo produces two artifacts:
 
-1. A **multi-arch Docker image** at `ghcr.io/estebanforge/agentmemory` (amd64 + arm64), built from this Dockerfile. The image bundles the [iii engine](https://hub.docker.com/r/iiidev/iii) (v0.11.2, pinned) and the `@agentmemory/agentmemory` worker (pulled from npm at build time).
+1. A **multi-arch Docker image** at `ghcr.io/estebanforge/agentmemory` (amd64 + arm64), built from this Dockerfile. The image bundles the [iii engine](https://hub.docker.com/r/iiidev/iii) (v0.22.1, in lockstep with the worker's `iii-sdk` pin) and the `@agentmemory/agentmemory` worker (pulled from npm at build time).
 2. An **Unraid Community Applications template** at `template/agentmemory.xml`.
 
 No fork of upstream is required. The Dockerfile is vendored from `rohitg00/agentmemory/deploy/fly/` with three justified deviations (see `entrypoint.sh` header).
@@ -17,8 +17,8 @@ agentmemory's only distribution channel is npm. There is no official Docker imag
 
 Two-stage build:
 
-- Stage 1 copies the prebuilt `iii` engine binary out of `iiidev/iii:0.11.2`.
-- Stage 2 is `node:24-slim` (Active LTS), installs `@agentmemory/agentmemory@<version>` into a dedicated prefix whose `package.json` `overrides` pin `iii-sdk` to 0.11.2 (npm `install -g` ignores overrides, and the caret range `^0.11.2` would otherwise resolve to 0.11.6, which breaks agentmemory).
+- Stage 1 copies the prebuilt `iii` engine binary out of `iiidev/iii:0.22.1`.
+- Stage 2 is `node:24-slim` (Active LTS), installs `@agentmemory/agentmemory@<version>` into a dedicated prefix whose `package.json` `overrides` pin `iii-sdk` to the engine's version (npm `install -g` ignores overrides; the guard keeps engine and worker in lockstep).
 
 `--omit=optional` drops `@huggingface/transformers`. Consequence: **this image cannot run local embeddings.** A cloud embedding provider (Gemini, OpenAI, Voyage, Cohere, or OpenRouter) is mandatory. This is deliberate, it keeps the image small and makes CPU-weak hosts (Intel Celeron NAS, etc.) viable by forcing embeddings off-host.
 
@@ -31,7 +31,7 @@ CI (`.github/workflows/release.yml`) builds both architectures and pushes to GHC
 Two version concepts:
 
 - **Release version** (this repo's semver, e.g. `1.0.0`): taken from the git tag. Drives the image tags and the CHANGELOG.
-- **Bundled agentmemory version** (e.g. `0.9.29`): read from [`agentmemory.version`](agentmemory.version). A build detail (which upstream agentmemory release is baked in).
+- **Bundled agentmemory version** (e.g. `0.9.30`): read from [`agentmemory.version`](agentmemory.version). A build detail (which upstream agentmemory release is baked in).
 
 To cut a release:
 
@@ -107,7 +107,7 @@ The template exposes the full config surface (47 fields). The values below are t
 
 ## Known caveats
 
-- **iii is pinned to 0.11.2.** v0.11.6 introduces a sandbox worker model the agentmemory CLI is not refactored for. Do not bump `III_VERSION` without upstream changes.
+- **Engine and `iii-sdk` move in lockstep.** Set `III_VERSION` and `III_SDK_VERSION` to the exact `iii-sdk` version agentmemory itself pins. Lockstep failure signature: EPIPE reconnect loops and empty search-after-save.
 - **Cold start ~9 to 10 seconds** (index hydration from `state_store` snapshots). The healthcheck `start_period` covers this.
 - **`AGENTMEMORY_SECRET` is the only auth** on the REST + viewer ports. On a trusted home LAN this is fine; on any other network put the container behind a reverse proxy with TLS or restrict the published ports.
 - **Observability is disabled** in the generated iii config. Re-enabling it at sampling 1.0 triggers a log feedback loop (issue #519). If you need traces, set a low sampling ratio and watch disk usage.

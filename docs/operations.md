@@ -41,7 +41,7 @@ Releases are tag-driven. When the maintainer publishes a new release (an `X.Y.Z`
 
 To publish a release yourself (maintainer), see the Build and release section in the root README.
 
-Do not bump `III_VERSION` (the engine) past 0.11.2. See [architecture.md](architecture.md) for why.
+Do not bump `III_VERSION` (the engine) without bumping `III_SDK_VERSION` (the worker dependency) to the same version agentmemory pins. See [architecture.md](architecture.md) for why.
 
 ## Backups
 

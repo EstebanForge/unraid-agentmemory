@@ -6,7 +6,7 @@
 #
 # Multi-arch: linux/amd64 + linux/arm64 (both base images are multi-arch).
 
-ARG III_VERSION=0.11.2
+ARG III_VERSION=0.22.1
 
 # Stage 1: grab the prebuilt iii engine binary.
 FROM iiidev/iii:${III_VERSION} AS iii-image
@@ -15,9 +15,9 @@ FROM iiidev/iii:${III_VERSION} AS iii-image
 # and is in upstream agentmemory's CI matrix (20/22/24/26), so it is tested.
 FROM node:24-slim
 
-ARG AGENTMEMORY_VERSION=0.9.28
-ARG III_VERSION=0.11.2
-ARG III_SDK_VERSION=0.11.2
+ARG AGENTMEMORY_VERSION=0.9.30
+ARG III_VERSION=0.22.1
+ARG III_SDK_VERSION=0.22.1
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends openssl ca-certificates tini gosu curl \
@@ -26,11 +26,14 @@ RUN apt-get update \
 COPY --from=iii-image /app/iii /usr/local/bin/iii
 
 # Install agentmemory into a dedicated prefix so the local package.json's
-# `overrides` field pins iii-sdk down to match the engine (agentmemory's
-# caret range `^0.11.2` otherwise resolves to 0.11.6, the version that
-# requires the new sandbox-everything worker model the agentmemory CLI
-# is not refactored for yet). `npm install -g` ignores overrides, hence
-# the local prefix.
+# `overrides` field pins iii-sdk to exactly III_SDK_VERSION, in lockstep with
+# the engine copied in stage 1. agentmemory 0.9.30 already pins iii-sdk to
+# exactly 0.22.1, so the override is a guard, not a workaround: it keeps the
+# worker and engine in lockstep on future bumps. The 0.11.x-era pin existed
+# because agentmemory's `^0.11.2` range drifted to 0.11.6, which required a
+# worker model the CLI was not refactored for (EPIPE loops, empty search).
+# Lifted in 1.0.3 when upstream paired 0.9.30 with 0.22.1. `npm install -g`
+# ignores overrides, hence the local prefix.
 #
 # --omit=optional drops @huggingface/transformers, so local MiniLM
 # embeddings are UNAVAILABLE in this image. A cloud embedding provider

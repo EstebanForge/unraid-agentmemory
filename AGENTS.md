@@ -1,6 +1,6 @@
 # PROJECT KNOWLEDGE BASE
 
-**Generated:** 2026-08-12 (updated for 1.0.1)
+**Generated:** 2026-08-12 (updated for 1.0.3)
 
 ## OVERVIEW
 
@@ -18,8 +18,8 @@ Upstream: [agentmemory](https://www.agent-memory.dev/) (npm only, no official im
 Two independent versions:
 
 - **Release version** (this repo's semver, e.g. `1.0.0`): comes from the git tag (`1.0.0`). Drives the image tags and `CHANGELOG.md`.
-- **Bundled agentmemory version** (e.g. `0.9.29`): read from `agentmemory.version`. A build detail (which upstream agentmemory npm release is baked in).
-- **iii engine**: pinned to `0.11.2` in the Dockerfile. Do not bump (see NOTES).
+- **Bundled agentmemory version** (e.g. `0.9.30`): read from `agentmemory.version`. A build detail (which upstream agentmemory npm release is baked in).
+- **iii engine**: `0.22.1`, in lockstep with agentmemory's own `iii-sdk` pin (see NOTES).
 
 ## STRUCTURE
 
@@ -29,7 +29,7 @@ Two independent versions:
 ├── patches/
 │   └── health-thresholds.mjs  # Build-time rewrite of vendored worker dist (deviation #4)
 ├── entrypoint.sh           # First-boot: generate iii config, seed HMAC, gate viewer, drop privs
-├── agentmemory.version     # Bundled agentmemory version (0.9.29); single source for the build arg
+├── agentmemory.version     # Bundled agentmemory version (0.9.30); single source for the build arg
 ├── CHANGELOG.md            # Release history (Keep a Changelog); current [1.0.0]
 ├── template/
 │   └── agentmemory.xml     # Unraid CA template: 47 configurable fields (multi-provider)
@@ -86,8 +86,8 @@ This is a packaging repo. There is no test suite, linter, or build step run loca
 
 ## NOTES (critical gotchas)
 
-1.  **iii is pinned to 0.11.2.** `III_VERSION` and `III_SDK_VERSION` must not exceed 0.11.2. v0.11.6 adds a sandbox worker model the agentmemory CLI is not refactored for; it surfaces as EPIPE reconnect loops and empty search-after-save. The pin lifts only when upstream refactors.
-2.  **The `overrides` pin is load-bearing.** `npm install -g` ignores `overrides`. agentmemory is installed into `/opt/agentmemory` (a local prefix) whose `package.json` pins `iii-sdk` to 0.11.2. Without it the caret range `^0.11.2` resolves to 0.11.6 and breaks. Do not change the install method without preserving this.
+1.  **Engine and iii-sdk move in lockstep.** `III_VERSION` and `III_SDK_VERSION` must match each other AND the `iii-sdk` version agentmemory itself depends on (0.9.30 pins iii-sdk to exactly 0.22.1; verify with `npm view @agentmemory/agentmemory@X dependencies.iii-sdk` before a bump). Lockstep failure signature: EPIPE reconnect loops and empty search-after-save. History: the 0.11.x era pin existed because agentmemory's `^0.11.2` range drifted to 0.11.6, which required a worker model the CLI was not refactored for. Lifted in 1.0.3 when upstream paired 0.9.30 with 0.22.1, which also bounded the four stores that grew without bound on 0.11.x (graph provenance, audit log, vector index, viewer stream backlog; upstream issues #964/#1389/#1443/#1153).
+2.  **The `overrides` pin is load-bearing.** `npm install -g` ignores `overrides`. agentmemory is installed into `/opt/agentmemory` (a local prefix) whose `package.json` pins `iii-sdk` to `III_SDK_VERSION`, so the worker cannot resolve a different iii-sdk than the engine binary copied in stage 1. Do not change the install method without preserving this.
 3.  **No local embeddings; multi-provider LLM.** `--omit=optional` drops `@huggingface/transformers`, so a cloud embedding provider is mandatory. LLM providers: Gemini, OpenAI, OpenAI-compatible (DeepSeek, Z.ai GLM, SiliconFlow, vLLM, Ollama via `OPENAI_BASE_URL`), Anthropic, MiniMax, OpenRouter. Embedding providers: Gemini, OpenAI, Voyage, Cohere, OpenRouter. Anthropic and MiniMax are LLM-only (no embeddings API) and must be paired with an embedding provider. Detection order if multiple keys set: OpenAI > MiniMax > Anthropic > Gemini > OpenRouter (LLM); Gemini > OpenAI > Voyage > Cohere > OpenRouter (embeddings).
 4.  **Observability is disabled** in the generated iii config. Re-enabling at `sampling_ratio: 1.0` triggers a log feedback loop (issue #519, 137 GB to `daemon.log.new`). Re-enable per-session only, low sampling, watch disk.
 5.  **Four deviations from upstream** (the point of the fork): (a) observability off, (b) `AGENTMEMORY_SECRET` honored from env, (c) viewer binds `0.0.0.0` only when `VIEWER_ALLOWED_HOSTS` is set (without it, a non-loopback viewer throws an uncaught `ViewerConfigError` that kills the whole process), (d) build-time health-threshold patch (`patches/health-thresholds.mjs`: RSS floor 512 MiB → 1.5 GiB, critical 95% → 98%) because the engine's `evaluateHealth()` takes no config from env and its defaults spuriously 503 the health route during V8 GC spikes. Re-vendoring requires re-applying all four. See `docs/architecture.md`.
